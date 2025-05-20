@@ -1,0 +1,5 @@
+[2025-05-20 13:52:56.213620 Eastern Daylight Time] Train data: 1359 batches
+[2025-05-20 13:52:56.213620 Eastern Daylight Time] Val data: 142 batches
+[2025-05-20 13:52:56.213620 Eastern Daylight Time] Test data: 155 batches
+[2025-05-20 13:52:56.214623 Eastern Daylight Time] Word vocab size: 10002
+[2025-05-20 13:52:56.293831 Eastern Daylight Time] model architecture

@@ -10,7 +10,7 @@ import shutil
 import copy
 
 import torch
-from torch import cuda
+# from torch import cuda
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
@@ -88,8 +88,8 @@ def main(args):
   suffix = "%s_%s.pt" % (args.model, 'bl')
   checkpoint_path = os.path.join(checkpoint_dir, suffix)
 
-  if args.slurm == 0:
-    cuda.set_device(args.gpu)
+  # if args.slurm == 0:
+  #   cuda.set_device(args.gpu)
   if args.train_from == '':
     model = RNNVAE(vocab_size = vocab_size,
                    enc_word_dim = args.enc_word_dim,
@@ -119,8 +119,8 @@ def main(args):
     args.beta = 0.1
     
   criterion = nn.NLLLoss()
-  model.cuda()
-  criterion.cuda()
+  # model.cuda()
+  # criterion.cuda()
   model.train()
 
   def variational_loss(input, sents, model, z = None):
@@ -167,8 +167,8 @@ def main(args):
         args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
       
       sents, length, batch_size = train_data[i]
-      if args.gpu >= 0:
-        sents = sents.cuda()
+      # if args.gpu >= 0:
+      #   sents = sents.cuda()
       b += 1
       
       optimizer.zero_grad()
@@ -178,8 +178,10 @@ def main(args):
         train_nll_autoreg += nll_autoreg.data[0]*batch_size
         nll_autoreg.backward()
       elif args.model == 'svi':        
-        mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
-        logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
+        # mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
+        # logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
+        mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
+        logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
         var_params_svi = meta_optimizer.forward([mean_svi, logvar_svi], sents,
                                                   b % args.print_every == 0)
         mean_svi_final, logvar_svi_final = var_params_svi
@@ -196,9 +198,11 @@ def main(args):
         z_samples = model._reparameterize(mean, logvar)
         preds = model._dec_forward(sents, z_samples)
         nll_vae = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-        train_nll_vae += nll_vae.data[0]*batch_size
+        # train_nll_vae += nll_vae.data[0]*batch_size
+        train_nll_vae += nll_vae.data.item()*batch_size
         kl_vae = utils.kl_loss_diag(mean, logvar)
-        train_kl_vae += kl_vae.data[0]*batch_size        
+        # train_kl_vae += kl_vae.data[0]*batch_size
+        train_kl_vae += kl_vae.data.item()*batch_size        
         if args.model == 'vae':
           vae_loss = nll_vae + args.beta*kl_vae          
           vae_loss.backward(retain_graph = True)
@@ -285,7 +289,7 @@ def main(args):
       }
       logger.info('Save checkpoint to %s' % checkpoint_path)      
       torch.save(checkpoint, checkpoint_path)
-      model.cuda()
+      # model.cuda()
     else:
       if epoch >= args.min_epochs:
         args.decay = 1
@@ -299,7 +303,8 @@ def main(args):
 def eval(data, model, meta_optimizer):
     
   model.eval()
-  criterion = nn.NLLLoss().cuda() 
+  # criterion = nn.NLLLoss().cuda() 
+  criterion = nn.NLLLoss() 
   num_sents = 0
   num_words = 0
   total_nll_autoreg = 0.
@@ -312,15 +317,17 @@ def eval(data, model, meta_optimizer):
     sents, length, batch_size = data[i]
     num_words += batch_size*length
     num_sents += batch_size
-    if args.gpu >= 0:
-      sents = sents.cuda()
+    # if args.gpu >= 0:
+    #   sents = sents.cuda()
     if args.model == 'autoreg':
       preds = model._dec_forward(sents, None, True)
       nll_autoreg = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
       total_nll_autoreg += nll_autoreg.data[0]*batch_size
     elif args.model == 'svi':
-      mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
-      logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
+      # mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
+      # logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
+      mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
+      logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
       var_params_svi = meta_optimizer.forward([mean_svi, logvar_svi], sents)
       mean_svi_final, logvar_svi_final = var_params_svi
       z_samples = model._reparameterize(mean_svi_final.detach(), logvar_svi_final.detach())

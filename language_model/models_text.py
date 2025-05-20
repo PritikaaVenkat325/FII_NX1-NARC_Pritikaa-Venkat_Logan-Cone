@@ -64,7 +64,8 @@ class RNNVAE(nn.Module):
   def _reparameterize(self, mean, logvar, z = None):
     std = logvar.mul(0.5).exp()    
     if z is None:
-      z = Variable(torch.cuda.FloatTensor(std.size()).normal_(0, 1))
+      # z = Variable(torch.cuda.FloatTensor(std.size()).normal_(0, 1))
+      z = Variable(torch.FloatTensor(std.size()).normal_(0, 1))
     return z.mul(std) + mean
   
   def _dec_forward(self, sent, q_z, init_h = True):
