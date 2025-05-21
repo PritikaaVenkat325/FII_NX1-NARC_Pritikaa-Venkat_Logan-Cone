@@ -1,5 +1,9 @@
-[2025-05-20 13:52:56.213620 Eastern Daylight Time] Train data: 1359 batches
-[2025-05-20 13:52:56.213620 Eastern Daylight Time] Val data: 142 batches
-[2025-05-20 13:52:56.213620 Eastern Daylight Time] Test data: 155 batches
-[2025-05-20 13:52:56.214623 Eastern Daylight Time] Word vocab size: 10002
-[2025-05-20 13:52:56.293831 Eastern Daylight Time] model architecture
+[2025-05-21 15:54:22.254121 Eastern Daylight Time] Train data: 1359 batches
+[2025-05-21 15:54:22.255121 Eastern Daylight Time] Val data: 142 batches
+[2025-05-21 15:54:22.255121 Eastern Daylight Time] Test data: 155 batches
+[2025-05-21 15:54:22.255121 Eastern Daylight Time] Word vocab size: 10002
+[2025-05-21 15:54:22.256119 Eastern Daylight Time] Cuda Not Active
+[2025-05-21 15:54:22.355681 Eastern Daylight Time] model architecture
+[2025-05-21 15:54:22.366774 Eastern Daylight Time] Starting epoch 1
+[2025-05-21 15:54:22.367772 Eastern Daylight Time] KL annealing restart
+[2025-05-21 15:55:34.089010 Eastern Daylight Time] Iters: 0, Epoch: 1, Batch: 101/1359, LR: 0.0010, TrainARNLL: 0.0000, TrainARPPL: 1.00, TrainVAE_NLL: 171.2939, TrainVAE_REC: 165.4740, TrainVAE_KL: 5.8199, TrainVAE_PPL: 1727.30, TrainSVI_NLL: 0.00, TrainSVI_REC: 0.00, TrainSVI_KL: 0.0000, TrainSVI_PPL: 1.00, KLInitFinal: 0.00, |Param|: 188.6022, BestValPerf: 100000.00, BestEpoch: 0, Beta: 0.1147, Throughput: 43.52 examples/sec

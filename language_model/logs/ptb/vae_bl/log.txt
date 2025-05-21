@@ -1,6 +1,7 @@
-[2025-05-20 18:26:00.255032 Eastern Daylight Time] Train data: 1359 batches
-[2025-05-20 18:26:00.255752 Eastern Daylight Time] Val data: 142 batches
-[2025-05-20 18:26:00.255752 Eastern Daylight Time] Test data: 155 batches
-[2025-05-20 18:26:00.256761 Eastern Daylight Time] Word vocab size: 10002
-[2025-05-20 18:26:00.341843 Eastern Daylight Time] model architecture
-[2025-05-20 18:26:00.354536 Eastern Daylight Time] Starting epoch 1
+[2025-05-21 15:44:22.720654 Eastern Daylight Time] Train data: 1359 batches
+[2025-05-21 15:44:22.721655 Eastern Daylight Time] Val data: 142 batches
+[2025-05-21 15:44:22.721655 Eastern Daylight Time] Test data: 155 batches
+[2025-05-21 15:44:22.721655 Eastern Daylight Time] Word vocab size: 10002
+[2025-05-21 15:44:22.722732 Eastern Daylight Time] Cuda Not Active
+[2025-05-21 15:44:22.825567 Eastern Daylight Time] model architecture
+[2025-05-21 15:44:22.896310 Eastern Daylight Time] Starting epoch 1

@@ -10,7 +10,7 @@ import shutil
 import copy
 
 import torch
-# from torch import cuda
+from torch import cuda
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
@@ -88,8 +88,12 @@ def main(args):
   suffix = "%s_%s.pt" % (args.model, 'bl')
   checkpoint_path = os.path.join(checkpoint_dir, suffix)
 
-  # if args.slurm == 0:
-  #   cuda.set_device(args.gpu)
+  if(args.slurm == 0 and torch.cuda.is_available()):
+    cuda.set_device(args.gpu)
+    logger.info('Cuda Active with GPU: ' + torch.cuda.get_device_name(args.gpu))
+  else:
+    logger.info('Cuda Not Active')
+
   if args.train_from == '':
     model = RNNVAE(vocab_size = vocab_size,
                    enc_word_dim = args.enc_word_dim,
@@ -119,8 +123,11 @@ def main(args):
     args.beta = 0.1
     
   criterion = nn.NLLLoss()
-  # model.cuda()
-  # criterion.cuda()
+
+  if(args.gpu >= 0 and torch.cuda.is_available()):
+    model.cuda()
+    criterion.cuda()
+
   model.train()
 
   def variational_loss(input, sents, model, z = None):
@@ -167,30 +174,35 @@ def main(args):
         args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
       
       sents, length, batch_size = train_data[i]
-      # if args.gpu >= 0:
-      #   sents = sents.cuda()
+      if args.gpu >= 0 and torch.cuda.is_available():
+        sents = sents.cuda()
       b += 1
       
       optimizer.zero_grad()
       if args.model == 'autoreg':
         preds = model._dec_forward(sents, None, True)
         nll_autoreg = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-        train_nll_autoreg += nll_autoreg.data[0]*batch_size
+        # train_nll_autoreg += nll_autoreg.data[0]*batch_size
+        train_nll_autoreg += nll_autoreg.data.item()*batch_size
         nll_autoreg.backward()
-      elif args.model == 'svi':        
-        # mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
-        # logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
-        mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
-        logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
+      elif args.model == 'svi':
+        if(args.gpu >= 0 and torch.cuda.is_available()):
+          mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
+          logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim).cuda(), requires_grad = True)
+        else:
+          mean_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
+          logvar_svi = Variable(0.1*torch.zeros(batch_size, args.latent_dim), requires_grad = True)
         var_params_svi = meta_optimizer.forward([mean_svi, logvar_svi], sents,
                                                   b % args.print_every == 0)
         mean_svi_final, logvar_svi_final = var_params_svi
         z_samples = model._reparameterize(mean_svi_final.detach(), logvar_svi_final.detach())
         preds = model._dec_forward(sents, z_samples)
         nll_svi = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-        train_nll_svi += nll_svi.data[0]*batch_size
+        # train_nll_svi += nll_svi.data[0]*batch_size
+        train_nll_svi += nll_svi.data.item()*batch_size
         kl_svi = utils.kl_loss_diag(mean_svi_final, logvar_svi_final)
-        train_kl_svi += kl_svi.data[0]*batch_size      
+        # train_kl_svi += kl_svi.data[0]*batch_size      
+        train_kl_svi += kl_svi.data.item()*batch_size 
         var_loss = nll_svi + args.beta*kl_svi          
         var_loss.backward(retain_graph = True)
       else:
@@ -216,9 +228,11 @@ def main(args):
           z_samples = model._reparameterize(mean_svi_final, logvar_svi_final)
           preds = model._dec_forward(sents, z_samples)
           nll_svi = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-          train_nll_svi += nll_svi.data[0]*batch_size
+          # train_nll_svi += nll_svi.data[0]*batch_size
+          train_nll_svi += nll_svi.data.item()*batch_size
           kl_svi = utils.kl_loss_diag(mean_svi_final, logvar_svi_final)
-          train_kl_svi += kl_svi.data[0]*batch_size      
+          # train_kl_svi += kl_svi.data[0]*batch_size  
+          train_kl_svi += kl_svi.data.item()*batch_size      
           var_loss = nll_svi + args.beta*kl_svi          
           var_loss.backward(retain_graph = True)
           if args.train_n2n == 0:
@@ -226,7 +240,8 @@ def main(args):
               mean_final = mean_svi_final.detach()
               logvar_final = logvar_svi_final.detach()            
               kl_init_final = utils.kl_loss(mean, logvar, mean_final, logvar_final)
-              train_kl_init_final += kl_init_final.data[0]*batch_size
+              # train_kl_init_final += kl_init_final.data[0]*batch_size
+              train_kl_init_final += kl_init_final.data.item()*batch_size
               kl_init_final.backward(retain_graph = True)              
             else:
               vae_loss = nll_vae + args.beta*kl_vae
@@ -245,7 +260,8 @@ def main(args):
       num_words += batch_size * length
       
       if b % args.print_every == 0:
-        param_norm = sum([p.norm()**2 for p in model.parameters()]).data[0]**0.5
+        # param_norm = sum([p.norm()**2 for p in model.parameters()]).data[0]**0.5
+        param_norm = sum([p.norm()**2 for p in model.parameters()]).data.item()**0.5
         logger.info('Iters: %d, Epoch: %d, Batch: %d/%d, LR: %.4f, TrainARNLL: %.4f, TrainARPPL: %.2f, TrainVAE_NLL: %.4f, TrainVAE_REC: %.4f, TrainVAE_KL: %.4f, TrainVAE_PPL: %.2f, TrainSVI_NLL: %.2f, TrainSVI_REC: %.2f, TrainSVI_KL: %.4f, TrainSVI_PPL: %.2f, KLInitFinal: %.2f, |Param|: %.4f, BestValPerf: %.2f, BestEpoch: %d, Beta: %.4f, Throughput: %.2f examples/sec' % 
               (t, epoch, b+1, len(train_data), args.lr, 
                train_nll_autoreg / num_sents, np.exp(train_nll_autoreg / num_words), 
@@ -289,7 +305,8 @@ def main(args):
       }
       logger.info('Save checkpoint to %s' % checkpoint_path)      
       torch.save(checkpoint, checkpoint_path)
-      # model.cuda()
+      if(args.gpu >= 0 and torch.cuda.is_available()):
+        model.cuda()
     else:
       if epoch >= args.min_epochs:
         args.decay = 1
@@ -303,8 +320,10 @@ def main(args):
 def eval(data, model, meta_optimizer):
     
   model.eval()
-  # criterion = nn.NLLLoss().cuda() 
-  criterion = nn.NLLLoss() 
+  if(args.gpu >= 0 and torch.cuda.is_available()):
+    criterion = nn.NLLLoss().cuda() 
+  else:
+    criterion = nn.NLLLoss() 
   num_sents = 0
   num_words = 0
   total_nll_autoreg = 0.
@@ -317,34 +336,41 @@ def eval(data, model, meta_optimizer):
     sents, length, batch_size = data[i]
     num_words += batch_size*length
     num_sents += batch_size
-    # if args.gpu >= 0:
-    #   sents = sents.cuda()
+    if(args.gpu >= 0 and torch.cuda.is_available()):
+      sents = sents.cuda()
     if args.model == 'autoreg':
       preds = model._dec_forward(sents, None, True)
       nll_autoreg = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-      total_nll_autoreg += nll_autoreg.data[0]*batch_size
+      # total_nll_autoreg += nll_autoreg.data[0]*batch_size
+      total_nll_autoreg += nll_autoreg.data.item()*batch_size
     elif args.model == 'svi':
-      # mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
-      # logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
-      mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
-      logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
+      if(args.gpu >= 0 and torch.cuda.is_available()): 
+        mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
+        logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim).cuda(), requires_grad = True)
+      else:
+        mean_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
+        logvar_svi = Variable(0.1*torch.randn(batch_size, args.latent_dim), requires_grad = True)
       var_params_svi = meta_optimizer.forward([mean_svi, logvar_svi], sents)
       mean_svi_final, logvar_svi_final = var_params_svi
       z_samples = model._reparameterize(mean_svi_final.detach(), logvar_svi_final.detach())
       preds = model._dec_forward(sents, z_samples)
       nll_svi = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-      total_nll_svi += nll_svi.data[0]*batch_size
+      # total_nll_svi += nll_svi.data[0]*batch_size
+      total_nll_svi += nll_svi.data.item()*batch_size
       kl_svi = utils.kl_loss_diag(mean_svi_final, logvar_svi_final)
-      total_kl_svi += kl_svi.data[0]*batch_size
+      # total_kl_svi += kl_svi.data[0]*batch_size
+      total_kl_svi += kl_svi.data.item()*batch_size
       mean, logvar = mean_svi_final, logvar_svi_final
     else:
       mean, logvar = model._enc_forward(sents)
       z_samples = model._reparameterize(mean, logvar)
       preds = model._dec_forward(sents, z_samples)
       nll_vae = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-      total_nll_vae += nll_vae.data[0]*batch_size
+      # total_nll_vae += nll_vae.data[0]*batch_size
+      total_nll_vae += nll_vae.data.item()*batch_size
       kl_vae = utils.kl_loss_diag(mean, logvar)
-      total_kl_vae += kl_vae.data[0]*batch_size        
+      # total_kl_vae += kl_vae.data[0]*batch_size      
+      total_kl_vae += kl_vae.data.item()*batch_size   
       if args.model == 'savae':
         mean_svi = Variable(mean.data, requires_grad = True)
         logvar_svi = Variable(logvar.data, requires_grad = True)
@@ -353,9 +379,11 @@ def eval(data, model, meta_optimizer):
         z_samples = model._reparameterize(mean_svi_final, logvar_svi_final)
         preds = model._dec_forward(sents, z_samples)
         nll_svi = sum([criterion(preds[:, l], sents[:, l+1]) for l in range(length)])
-        total_nll_svi += nll_svi.data[0]*batch_size
+        # total_nll_svi += nll_svi.data[0]*batch_size
+        total_nll_svi += nll_svi.data.item()*batch_size
         kl_svi = utils.kl_loss_diag(mean_svi_final, logvar_svi_final)
-        total_kl_svi += kl_svi.data[0]*batch_size      
+        # total_kl_svi += kl_svi.data[0]*batch_size      
+        total_kl_svi += kl_svi.data.item()*batch_size 
         mean, logvar = mean_svi_final, logvar_svi_final
 
   nll_autoreg = total_nll_autoreg / num_sents
