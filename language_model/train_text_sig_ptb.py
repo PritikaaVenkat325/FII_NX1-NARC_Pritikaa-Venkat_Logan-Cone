@@ -92,7 +92,7 @@ def main(args):
   checkpoint_dir = args.checkpoint_dir
   if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
-  suffix = "%s_%s.pt" % (args.model, 'cyc')
+  suffix = "%s_%s.pt" % (args.model, 'sig')
   checkpoint_path = os.path.join(checkpoint_dir, suffix)
 
   if(args.slurm == 0 and torch.cuda.is_available()):
@@ -187,7 +187,8 @@ def main(args):
 
     for i in np.random.permutation(len(train_data)):
       if args.warmup > 0:
-        args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
+        # args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
+        args.beta = 1/(1 + np.exp(-(1/len(train_data)) * (((epoch-1) % args.cycle) * len(train_data) + i) - 2.1))
         # DELETE
         x.append((epoch-1) * len(train_data) + i)
         y.append(args.beta)
