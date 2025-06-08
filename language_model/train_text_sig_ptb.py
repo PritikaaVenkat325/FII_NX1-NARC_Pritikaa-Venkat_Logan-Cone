@@ -26,10 +26,7 @@ import utils
 
 import logger
 
-# DELETE LATER
-import matplotlib.pyplot as plt
-x = [0]
-y = [0.1]
+
 
 parser = argparse.ArgumentParser()
 
@@ -75,6 +72,8 @@ parser.add_argument('--print_every', type=int, default=100)
 parser.add_argument('--test', type=int, default=0)
 
 parser.add_argument('--cycle', type=int, default=10)
+
+cycledBatch = 0
 
 def main(args):
   np.random.seed(args.seed)
@@ -183,15 +182,16 @@ def main(args):
 
     if (epoch-1) % args.cycle == 0:
       args.beta = 0.1
+      cycledBatch = 0
       logger.info('KL annealing restart')
 
     for i in np.random.permutation(len(train_data)):
       if args.warmup > 0:
         # args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
-        args.beta = 1/(1 + np.exp(-(1/len(train_data)) * (((epoch-1) % args.cycle) * len(train_data) + i) - 2.1))
-        # DELETE
-        x.append((epoch-1) * len(train_data) + i)
-        y.append(args.beta)
+        # args.beta = 1/(1 + np.exp(-(1/len(train_data)) * (((epoch-1) % args.cycle) * len(train_data) + i) - 2.1))
+        args.beta = 1/(1 + np.exp((-2 * np.exp(1)) / (args.warmup * len(train_data)) * cycledBatch + np.exp(1)))
+
+        cycledBatch += 1
         
       sents, length, batch_size = train_data[i]
       if args.gpu >= 0 and torch.cuda.is_available():
@@ -293,10 +293,7 @@ def main(args):
                np.exp((train_nll_svi + train_kl_svi)/num_words), train_kl_init_final / num_sents,
                param_norm, best_val_nll, best_epoch, args.beta,
                num_sents / (time.time() - start_time)))
-    
-    # DELETE
-    plt.plot(x, y)
-    plt.show()
+        
 
     epoch_train_time = time.time() - start_time
     logger.info('Time Elapsed: %.1fs' % epoch_train_time)   
