@@ -26,6 +26,8 @@ import utils
 
 import logger
 
+
+
 parser = argparse.ArgumentParser()
 
 # Input data
@@ -51,7 +53,7 @@ parser.add_argument('--train_kl', default=1, type=int)
 parser.add_argument('--log_dir', default=None)
 parser.add_argument('--checkpoint_dir', default='models/ptb')
 parser.add_argument('--slurm', default=0, type=int)
-parser.add_argument('--warmup', default=10, type=int)
+parser.add_argument('--warmup', default=5, type=int)
 parser.add_argument('--num_epochs', default=40, type=int)
 parser.add_argument('--min_epochs', default=15, type=int)
 parser.add_argument('--start_epoch', default=0, type=int)
@@ -69,6 +71,10 @@ parser.add_argument('--seed', default=3435, type=int)
 parser.add_argument('--print_every', type=int, default=100)
 parser.add_argument('--test', type=int, default=0)
 
+parser.add_argument('--cycle', type=int, default=10)
+
+cycledBatch = 0
+
 def main(args):
   np.random.seed(args.seed)
   torch.manual_seed(args.seed)
@@ -85,7 +91,7 @@ def main(args):
   checkpoint_dir = args.checkpoint_dir
   if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
-  suffix = "%s_%s.pt" % (args.model, 'bl')
+  suffix = "%s_%s.pt" % (args.model, 'cyc_sig')
   checkpoint_path = os.path.join(checkpoint_dir, suffix)
 
   if(args.slurm == 0 and torch.cuda.is_available()):
@@ -169,10 +175,24 @@ def main(args):
     num_words = 0
     b = 0
     
+    tmp = float((epoch-1)%args.cycle)/args.cycle
+    cur_lr = args.lr*0.5*(1+np.cos(tmp*np.pi))     
+    for param_group in optimizer.param_groups:
+      param_group['lr'] = cur_lr
+
+    if (epoch-1) % args.cycle == 0:
+      args.beta = 0.1
+      cycledBatch = 0
+      logger.info('KL annealing restart')
+
     for i in np.random.permutation(len(train_data)):
       if args.warmup > 0:
-        args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
-      
+        # args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
+        # args.beta = 1/(1 + np.exp(-(1/len(train_data)) * (((epoch-1) % args.cycle) * len(train_data) + i) - 2.1))
+        args.beta = 1/(1 + np.exp((-2 * np.exp(1)) / (args.warmup * len(train_data)) * cycledBatch + np.exp(1)))
+
+        cycledBatch += 1
+        
       sents, length, batch_size = train_data[i]
       if args.gpu >= 0 and torch.cuda.is_available():
         sents = sents.cuda()
@@ -262,8 +282,8 @@ def main(args):
       if b % args.print_every == 0:
         # param_norm = sum([p.norm()**2 for p in model.parameters()]).data[0]**0.5
         param_norm = sum([p.norm()**2 for p in model.parameters()]).data.item()**0.5
-        logger.info('Iters: %d, Epoch: %d, Batch: %d/%d, LR: %.4f, TrainARNLL: %.4f, TrainARPPL: %.2f, TrainVAE_NLL: %.4f, TrainVAE_REC: %.4f, TrainVAE_KL: %.4f, TrainVAE_PPL: %.2f, TrainSVI_NLL: %.2f, TrainSVI_REC: %.2f, TrainSVI_KL: %.4f, TrainSVI_PPL: %.2f, KLInitFinal: %.2f, |Param|: %.4f, BestValPerf: %.2f, BestEpoch: %d, Beta: %.4f, Throughput: %.2f examples/sec' % 
-              (t, epoch, b+1, len(train_data), args.lr, 
+        logger.info('Iters: %d, Epoch: %d, Batch: %d/%d, LR: %.4f, TrainARNLL: %.4f, TrainARPPL: %.2f, TrainVAE_NLL: %.4f, TrainVAE_REC: %.4f, TrainVAE_KL: %.4f, TrainVAE_PPL: %.2f, TrainSVI_NLL: %.2f, TrainSVI_REC: %.2f, TrainSVI_KL: %.4f, TrainSVI_PPL: %.2f, KLInitFinal: %.2f, |Param|: %.4f, BestValPerf: %.2f, BestEpoch: %d, Beta: %.4f, Throughput: %.2f examples/sec' %
+              (t, epoch, b+1, len(train_data), cur_lr, 
                train_nll_autoreg / num_sents, np.exp(train_nll_autoreg / num_words), 
                (train_nll_vae + train_kl_vae)/num_sents,
                train_nll_vae / num_sents, train_kl_vae / num_sents,  
@@ -273,7 +293,8 @@ def main(args):
                np.exp((train_nll_svi + train_kl_svi)/num_words), train_kl_init_final / num_sents,
                param_norm, best_val_nll, best_epoch, args.beta,
                num_sents / (time.time() - start_time)))
-    
+        
+
     epoch_train_time = time.time() - start_time
     logger.info('Time Elapsed: %.1fs' % epoch_train_time)   
 
@@ -281,7 +302,7 @@ def main(args):
     logger.info('Checking validation perf...')
     logger.record_tabular('Epoch', epoch)
     logger.record_tabular('Mode', 'Val')
-    logger.record_tabular('LR', args.lr)
+    logger.record_tabular('LR', cur_lr)
     logger.record_tabular('Epoch Train Time', epoch_train_time)
     val_nll = eval(val_data, model, meta_optimizer)
     val_stats.append(val_nll)
@@ -290,7 +311,7 @@ def main(args):
     logger.info('Checking test perf...')
     logger.record_tabular('Epoch', epoch)
     logger.record_tabular('Mode', 'Test')
-    logger.record_tabular('LR', args.lr)
+    logger.record_tabular('LR', cur_lr)
     logger.record_tabular('Epoch Train Time', epoch_train_time)
     test_nll = eval(test_data, model, meta_optimizer)
 
