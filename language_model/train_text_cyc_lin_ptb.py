@@ -26,7 +26,6 @@ import utils
 
 import logger
 
-
 parser = argparse.ArgumentParser()
 
 # Input data
@@ -184,8 +183,7 @@ def main(args):
     for i in np.random.permutation(len(train_data)):
       if args.warmup > 0:
         args.beta = min(1, args.beta + 1./(args.warmup*len(train_data)))
-        
-        
+      
       sents, length, batch_size = train_data[i]
       if args.gpu >= 0 and torch.cuda.is_available():
         sents = sents.cuda()

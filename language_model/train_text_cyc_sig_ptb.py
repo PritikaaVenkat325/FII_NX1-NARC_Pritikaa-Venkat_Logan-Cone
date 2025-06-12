@@ -26,8 +26,6 @@ import utils
 
 import logger
 
-
-
 parser = argparse.ArgumentParser()
 
 # Input data
@@ -293,7 +291,7 @@ def main(args):
                np.exp((train_nll_svi + train_kl_svi)/num_words), train_kl_init_final / num_sents,
                param_norm, best_val_nll, best_epoch, args.beta,
                num_sents / (time.time() - start_time)))
-        
+
 
     epoch_train_time = time.time() - start_time
     logger.info('Time Elapsed: %.1fs' % epoch_train_time)   
