@@ -3,6 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
+# Pass the name of the scheduler (ie. mono_lin)
 parser.add_argument('--schedule', default='', type=str)
 
 def graph_beta_values(args):
