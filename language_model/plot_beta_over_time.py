@@ -10,7 +10,6 @@ def graph_beta_values(args):
     with open('logs/ptb/vae_' + args.schedule + '/log.txt', 'r') as file:
         batch = []
         beta = []
-        i = 0
         for line in file:
             if "Iters" in line:
                 # Get the epoch of the line
@@ -39,6 +38,7 @@ def graph_beta_values(args):
         plt.plot(batch, beta)
         plt.xlabel("Batches")
         plt.ylabel("Beta")
+        plt.title(args.schedule)
         plt.show(block=True)
                 
 
