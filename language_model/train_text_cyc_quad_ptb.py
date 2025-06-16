@@ -96,7 +96,7 @@ def main(args):
   checkpoint_dir = args.checkpoint_dir
   if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
-  suffix = "%s_%s.pt" % (args.model, 'cyc')
+  suffix = "%s_%s.pt" % (args.model, 'cyc_quad')
   checkpoint_path = os.path.join(checkpoint_dir, suffix)
 
   if(args.slurm == 0 and torch.cuda.is_available()):
